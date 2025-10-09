@@ -5,12 +5,9 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "fitness/start",
-        "options": {
-          "response": "json",
-          "responseCode": 200
-        }
+        "responseMode": "lastNode"
       },
-      "id": "WebhookStart",
+      "id": "1",
       "name": "Webhook - Start Session",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
@@ -18,32 +15,23 @@
     },
     {
       "parameters": {
-        "options": {
-          "response": "json",
-          "responseCode": 200
-        }
+        "functionCode": "// Expect body: { sessionId, deviceInfo, locale }\nconst sessionId = $json.sessionId || $json.query.sessionId || $json.headers['x-session-id'];\nconst locale = $json.locale || 'de-DE';\nreturn [{ json: { sessionId, locale, step: 'intake' } }];"
       },
-      "id": "FunctionStartPrep",
+      "id": "2",
       "name": "Function - Prepare Intake",
       "type": "n8n-nodes-base.function",
       "typeVersion": 2,
-      "position": [420, 200],
-      "functions": "// Expect body: { sessionId, deviceInfo, locale, userAudioUrl? }\nconst sessionId = $json.sessionId || $json.query.sessionId || $json.headers['x-session-id'];\nconst locale = $json.locale || 'de-DE';\nreturn [{ json: { sessionId, locale, step: 'intake' } }];"
+      "position": [420, 200]
     },
     {
       "parameters": {
         "url": "={{$env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions'}}",
-        "options": {},
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
-        "sendBody": true,
         "jsonParameters": true,
-        "optionsBinaryProps": {},
-        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$credentials.openAiApi.apiKey}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
-        "queryParametersJson": "=\n{}\n",
+        "options": {},
+        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$env.OPENAI_API_KEY}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
         "bodyParametersJson": "=\n{\n  \"model\": \"gpt-4o-mini\",\n  \"temperature\": 0.4,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Du bist ein freundlicher deutschsprachiger Fitness-Coach. Erfrage Alter, Gewicht, Ziel (z.B. Fettabbau, Muskelaufbau), verfügbare Zeit, Verletzungen. Erstelle danach einen kurzen Plan (5-10 Minuten) mit 2-4 Übungen. Sprich in kurzen Sätzen.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Starte Intake. frage nacheinander: Alter, Gewicht, Ziel.\"\n    }\n  ]\n}\n"
       },
-      "id": "HTTPIntakeLLM",
+      "id": "3",
       "name": "HTTP - LLM Intake",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -53,12 +41,9 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "fitness/voice-turn",
-        "options": {
-          "response": "json",
-          "responseCode": 200
-        }
+        "responseMode": "lastNode"
       },
-      "id": "WebhookVoiceTurn",
+      "id": "4",
       "name": "Webhook - Voice Turn",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
@@ -66,9 +51,9 @@
     },
     {
       "parameters": {
-        "functionCode": "// Expect multipart or JSON: { sessionId, audioUrl | base64Audio }\nconst sessionId = $json.sessionId || $json.query.sessionId || $json.headers['x-session-id'];\nreturn [{ json: { sessionId } }];"
+        "functionCode": "// Expect multipart or JSON: { sessionId, audioUrl | base64Audio }\nconst sessionId = $json.sessionId || $json.query.sessionId || $json.headers['x-session-id'];\nreturn [{ json: { sessionId, audioUrl: $json.audioUrl, base64Audio: $json.base64Audio } }];"
       },
-      "id": "FunctionExtractAudio",
+      "id": "5",
       "name": "Function - Extract Audio Ref",
       "type": "n8n-nodes-base.function",
       "typeVersion": 2,
@@ -77,15 +62,11 @@
     {
       "parameters": {
         "url": "={{$env.OPENAI_STT_URL || 'https://api.openai.com/v1/audio/transcriptions'}}",
-        "sendBinaryData": false,
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
-        "options": {},
         "jsonParameters": true,
-        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$credentials.openAiApi.apiKey}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
+        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$env.OPENAI_API_KEY}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
         "bodyParametersJson": "=\n{\n  \"model\": \"gpt-4o-transcribe\",\n  \"language\": \"de\",\n  \"audio_url\": \"={{$json.audioUrl}}\"\n}\n"
       },
-      "id": "HTTPSTT",
+      "id": "6",
       "name": "HTTP - STT (Transcribe)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -94,13 +75,11 @@
     {
       "parameters": {
         "url": "={{$env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions'}}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
         "jsonParameters": true,
-        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$credentials.openAiApi.apiKey}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
+        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$env.OPENAI_API_KEY}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
         "bodyParametersJson": "=\n{\n  \"model\": \"gpt-4o-mini\",\n  \"temperature\": 0.5,\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"Du bist ein motivierender Fitness-Coach. Antworte kurz, prägnant, auf Deutsch.\" },\n    { \"role\": \"user\", \"content\": \"={{$json.text || $json.transcript || 'Frage des Nutzers'}}\" }\n  ]\n}\n"
       },
-      "id": "HTTPLY",
+      "id": "7",
       "name": "HTTP - LLM Reply",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -109,13 +88,11 @@
     {
       "parameters": {
         "url": "={{$env.OPENAI_TTS_URL || 'https://api.openai.com/v1/audio/speech'}}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
         "jsonParameters": true,
-        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$credentials.openAiApi.apiKey}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
+        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$env.OPENAI_API_KEY}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
         "bodyParametersJson": "=\n{\n  \"model\": \"gpt-4o-tts\",\n  \"voice\": \"alloy\",\n  \"input\": \"={{$json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content}}\",\n  \"format\": \"mp3\"\n}\n"
       },
-      "id": "HTTPTTS",
+      "id": "8",
       "name": "HTTP - TTS",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -125,9 +102,9 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "fitness/exercise/start",
-        "options": { "response": "json", "responseCode": 200 }
+        "responseMode": "lastNode"
       },
-      "id": "WebhookExerciseStart",
+      "id": "9",
       "name": "Webhook - Exercise Start",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
@@ -137,7 +114,7 @@
       "parameters": {
         "functionCode": "// Expect { sessionId, exercise: 'squat'|'pushup'|'plank', targetReps?, targetSeconds? }\nconst { sessionId, exercise, targetReps, targetSeconds } = $json;\nreturn [{ json: { sessionId, exercise, targetReps, targetSeconds, startedAt: Date.now() } }];"
       },
-      "id": "FunctionExerciseState",
+      "id": "10",
       "name": "Function - Init Exercise State",
       "type": "n8n-nodes-base.function",
       "typeVersion": 2,
@@ -147,9 +124,9 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "fitness/pose",
-        "options": { "response": "json", "responseCode": 200 }
+        "responseMode": "lastNode"
       },
-      "id": "WebhookPose",
+      "id": "11",
       "name": "Webhook - Pose Frame",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
@@ -159,7 +136,7 @@
       "parameters": {
         "functionCode": "// Expect { sessionId, exercise, keypoints: [...], fps? }\n// Simple rep counting for squat/pushup via hip or elbow angle thresholds\nconst data = $json;\nconst prev = $json.prev || {};\nfunction angle(a,b,c){\n  const ab = { x: a.x-b.x, y: a.y-b.y };\n  const cb = { x: c.x-b.x, y: c.y-b.y };\n  const dot = ab.x*cb.x + ab.y*cb.y;\n  const mag = Math.sqrt(ab.x*ab.x+ab.y*ab.y)*Math.sqrt(cb.x*cb.x+cb.y*cb.y);\n  const cos = Math.max(-1, Math.min(1, dot/(mag||1)));\n  return Math.acos(cos) * 180/Math.PI;\n}\n// Map names to points\nconst points = {};\n(data.keypoints||[]).forEach(p=> points[p.name]=p);\nlet reps = prev.reps || 0;\nlet phase = prev.phase || 'up';\nif (data.exercise === 'squat') {\n  const knee = points['right_knee'] || points['left_knee'];\n  const hip = points['right_hip'] || points['left_hip'];\n  const ankle = points['right_ankle'] || points['left_ankle'];\n  if (knee && hip && ankle) {\n    const kneeAngle = angle(hip, knee, ankle);\n    if (phase === 'up' && kneeAngle < 90) { phase = 'down'; }\n    if (phase === 'down' && kneeAngle > 160) { phase = 'up'; reps += 1; }\n  }\n}\nif (data.exercise === 'pushup') {\n  const shoulder = points['right_shoulder'] || points['left_shoulder'];\n  const elbow = points['right_elbow'] || points['left_elbow'];\n  const wrist = points['right_wrist'] || points['left_wrist'];\n  if (shoulder && elbow && wrist) {\n    const elbowAngle = angle(shoulder, elbow, wrist);\n    if (phase === 'up' && elbowAngle < 70) { phase = 'down'; }\n    if (phase === 'down' && elbowAngle > 160) { phase = 'up'; reps += 1; }\n  }\n}\nreturn [{ json: { sessionId: data.sessionId, exercise: data.exercise, reps, phase } }];"
       },
-      "id": "FunctionRepCounter",
+      "id": "12",
       "name": "Function - Rep Counter",
       "type": "n8n-nodes-base.function",
       "typeVersion": 2,
@@ -168,13 +145,11 @@
     {
       "parameters": {
         "url": "={{$env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions'}}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
         "jsonParameters": true,
-        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$credentials.openAiApi.apiKey}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
+        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$env.OPENAI_API_KEY}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
         "bodyParametersJson": "=\n{\n  \"model\": \"gpt-4o-mini\",\n  \"temperature\": 0.5,\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"Du bist ein Live-Coach. Motiviere, zähle Wiederholungen, gib Form-Tipps. Sprich kurz.\" },\n    { \"role\": \"user\", \"content\": \"Übung: {{$json.exercise}}; Wiederholungen: {{$json.reps}}. Gib einen kurzen Satz Feedback.\" }\n  ]\n}\n"
       },
-      "id": "HTTPLiveCoach",
+      "id": "13",
       "name": "HTTP - LLM Live Coach",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -183,13 +158,11 @@
     {
       "parameters": {
         "url": "={{$env.OPENAI_TTS_URL || 'https://api.openai.com/v1/audio/speech'}}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
         "jsonParameters": true,
-        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$credentials.openAiApi.apiKey}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
+        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$env.OPENAI_API_KEY}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
         "bodyParametersJson": "=\n{\n  \"model\": \"gpt-4o-tts\",\n  \"voice\": \"alloy\",\n  \"input\": \"={{$json.choices[0].message.content}}\",\n  \"format\": \"mp3\"\n}\n"
       },
-      "id": "HTTPLiveTTS",
+      "id": "14",
       "name": "HTTP - TTS Live Coach",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -199,9 +172,9 @@
       "parameters": {
         "httpMethod": "POST",
         "path": "fitness/complete",
-        "options": { "response": "json", "responseCode": 200 }
+        "responseMode": "lastNode"
       },
-      "id": "WebhookComplete",
+      "id": "15",
       "name": "Webhook - Complete",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
@@ -210,13 +183,11 @@
     {
       "parameters": {
         "url": "={{$env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions'}}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
         "jsonParameters": true,
-        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$credentials.openAiApi.apiKey}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
+        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$env.OPENAI_API_KEY}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
         "bodyParametersJson": "=\n{\n  \"model\": \"gpt-4o-mini\",\n  \"temperature\": 0.4,\n  \"messages\": [\n    { \"role\": \"system\", \"content\": \"Gib ein kurzes, freundliches Feedback zum Training. Erkenne Fortschritt und mache Vorschläge für morgen.\" },\n    { \"role\": \"user\", \"content\": \"Sitzung beendet. Gib Feedback in 1-2 Sätzen.\" }\n  ]\n}\n"
       },
-      "id": "HTTPFinalLLM",
+      "id": "16",
       "name": "HTTP - LLM Final Feedback",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -225,13 +196,11 @@
     {
       "parameters": {
         "url": "={{$env.OPENAI_TTS_URL || 'https://api.openai.com/v1/audio/speech'}}",
-        "authentication": "predefinedCredentialType",
-        "nodeCredentialType": "openAiApi",
         "jsonParameters": true,
-        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$credentials.openAiApi.apiKey}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
+        "headerParametersJson": "=\n{\n  \"Authorization\": \"Bearer {{$env.OPENAI_API_KEY}}\",\n  \"Content-Type\": \"application/json\"\n}\n",
         "bodyParametersJson": "=\n{\n  \"model\": \"gpt-4o-tts\",\n  \"voice\": \"alloy\",\n  \"input\": \"={{$json.choices[0].message.content}}\",\n  \"format\": \"mp3\"\n}\n"
       },
-      "id": "HTTPFinalTTS",
+      "id": "17",
       "name": "HTTP - TTS Final Feedback",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
@@ -257,15 +226,5 @@
     "executionOrder": "v1",
     "saveExecutionProgress": true
   },
-  "staticData": {},
-  "meta": {
-    "templateCreds": [
-      {
-        "name": "openAiApi",
-        "displayName": "OpenAI API",
-        "props": ["apiKey"]
-      }
-    ]
-  },
-  "id": "ai-fitness-coach"
+  "staticData": {}
 }
